@@ -1,30 +1,10 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="200" alt="Nest Logo" /></a>
-</p>
-
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://coveralls.io/github/nestjs/nest?branch=master" target="_blank"><img src="https://coveralls.io/repos/github/nestjs/nest/badge.svg?branch=master#9" alt="Coverage" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
-
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Demo showcasing test-case execution against a database. Uses
+
+- [NestJS](https://docs.nestjs.com/)
+- [Prisma](https://www.prisma.io/)
+- [TestContainers](https://testcontainers.com/)
 
 ## Installation
 
@@ -51,23 +31,131 @@ $ npm run start:prod
 # unit tests
 $ npm run test
 
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
 ```
 
-## Support
+Before test-execution, a database container is started on demand. This container will contain a default database, which is already migrated to the latest schema.
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+> This might take some time, if this is the first time the underyling container-image has to be built.
 
-## Stay in touch
+Sometimes it may speed up things, to start the containers outside of the test-execution context.
 
-- Author - [Kamil Myśliwiec](https://kamilmysliwiec.com)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+```bash
+$ docker compose up --build -d
+```
+
+Remember to tear down the compose-environment, to leverage automatic bootstrapping of the containers during test-execution:
+
+```bash
+$ docker compose down
+```
+
+### using test-databases
+
+In a test-suite, use one of the provided database bootstrappers
+
+#### singleton
+The global (singleton-) database is used.
+This approachmay suffer from tests mutating shared state. 
+To get a stable enough experience, testcontainers should be setup and torn down on each run, which might take a while.
+
+
+```typescript
+import { ConfigureSingleton } from '../test/db/db.lifecycle';
+
+const testSuiteName = 'SomeTestSuiteName';
+
+describe(testSuiteName, () => {
+
+  let systemUnderTest : FooBarService;
+
+  ConfigureSingleton(testSuiteName, [AppModule], (app) => {
+    systemUnderTest = app.get<FooBarService>(FooBarService);
+  });
+
+  it ('just works', async () => {
+    expect((await systemUnderTest.getValue(15)).value).toBe('foobar');
+  })
+
+});
+  
+```
+
+#### scoped
+A fresh database gets created for each test-suite, before any test is run from the suite.
+The database is reset after all tests has been executed. 
+This ensures state mutation is only local in respect to the surrounding test-suite.
+
+```typescript
+import { ConfigureScoped } from '../test/db/db.lifecycle';
+
+const testSuiteName = 'SomeTestSuiteName';
+
+describe(testSuiteName, () => {
+
+  let systemUnderTest : FooBarService;
+
+  ConfigureScoped(testSuiteName, [AppModule], (app) => {
+    systemUnderTest = app.get<FooBarService>(FooBarService);
+  });
+
+  it ('just works', async () => {
+    expect((await systemUnderTest.getValue(15)).value).toBe('foobar');
+  })
+
+});
+  
+```
+
+#### transient
+A fresh, randomly named database gets created for each test in a suite.
+The database is not reset to be inspectable after test-execution (as long as the container is not downed, automatically). 
+This ensures state mutation is only local in respect to the current test.
+
+```typescript
+import { ConfigureScoped } from '../test/db/db.lifecycle';
+
+const testSuiteName = 'SomeTestSuiteName';
+
+async function withTestData(
+  db: PrismaClient,
+  items: Array<{ id: number; value: string }>,
+) {
+  await db.fooBars.createMany({
+    data: items,
+  });
+}
+
+describe(testSuiteName, () => {
+
+  let systemUnderTest : FooBarService;
+  let db: PrismaClient;
+
+  ConfigureTransient(testSuiteName, [AppModule], (app) => {
+    systemUnderTest = app.get<FooBarService>(FooBarService);
+    db = app.get<PrismaClient>(PrismaClient);
+  });
+
+  it ('just works', async () => {
+    withTestData({
+      id: 15, value:'some-test-data'
+    })
+    const result = await systemUnderTest.getValue(15);
+
+    expect(result.isCached).toBe(true);
+    expect(result.value).toBe('some-test-data');
+  })
+
+  it ('just works here as well', async () => {
+    const result = await systemUnderTest.getValue(15);
+    expect(result.isCached).toBe(false);
+    expect(result.value).toBe('foobar');
+  })
+
+});
+  
+```
+
 
 ## License
 
-Nest is [MIT licensed](LICENSE).
+[MIT licensed](LICENSE).
