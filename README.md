@@ -55,8 +55,8 @@ In a test-suite, use one of the provided database bootstrappers
 
 #### singleton
 The global (singleton-) database is used.
-This approachmay suffer from tests mutating shared state. 
-To get a stable enough experience, testcontainers should be setup and torn down on each run, which might take a while.
+This is the "fastest" approach when it comes to test-execution, but may suffer from tests mutating globally shared state. 
+To get a stable enough experience, testcontainers should be setup and torn down on each run, which adds a lot of overhead again.
 
 
 ```typescript
@@ -73,7 +73,9 @@ describe(testSuiteName, () => {
   });
 
   it ('just works', async () => {
-    expect((await systemUnderTest.getValue(15)).value).toBe('foobar');
+    const result = await systemUnderTest.getValue(15);
+    expect(result.value).toBe('foobar');
+    expect(result.isCached).toBe(false); //will fail in subsequent calls, as global state gets mutated, implicitly
   })
 
 });
@@ -83,7 +85,7 @@ describe(testSuiteName, () => {
 #### scoped
 A fresh database gets created for each test-suite, before any test is run from the suite.
 The database is reset after all tests has been executed. 
-This ensures state mutation is only local in respect to the surrounding test-suite.
+This ensures state mutation is only local to the surrounding test-suite.
 
 ```typescript
 import { ConfigureScoped } from '../test/db/db.lifecycle';
@@ -99,7 +101,12 @@ describe(testSuiteName, () => {
   });
 
   it ('just works', async () => {
-    expect((await systemUnderTest.getValue(15)).value).toBe('foobar');
+    const result = await systemUnderTest.getValue(15);
+    expect(result.value).toBe('foobar');
+    expect(result.isCached).toBe(false); // will succeed in subsequent calls, as shared state gets torn down after each test run
+
+    const resultAgain = await systemUnderTest.getValue(15);
+    expect(result.isCached).toBe(true);
   })
 
 });
@@ -135,21 +142,23 @@ describe(testSuiteName, () => {
     db = app.get<PrismaClient>(PrismaClient);
   });
 
+  
+
   it ('just works', async () => {
+    const result = await systemUnderTest.getValue(15);
+    expect(result.isCached).toBe(false); // will always succeed, as there is no shared state between tests
+    expect(result.value).toBe('foobar');
+  });
+
+  it ('just works here too', async () => {
     withTestData({
       id: 15, value:'some-test-data'
     })
     const result = await systemUnderTest.getValue(15);
 
-    expect(result.isCached).toBe(true);
+    expect(result.isCached).toBe(true); // will always succeed, as test-data gets inserted into the transient database just before the run
     expect(result.value).toBe('some-test-data');
-  })
-
-  it ('just works here as well', async () => {
-    const result = await systemUnderTest.getValue(15);
-    expect(result.isCached).toBe(false);
-    expect(result.value).toBe('foobar');
-  })
+  });
 
 });
   
