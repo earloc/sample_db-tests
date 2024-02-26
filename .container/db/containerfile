@@ -3,7 +3,7 @@ ARG BaseImage=mcr.microsoft.com/mssql/server:2019-latest
 FROM $BaseImage
 
 ENV ACCEPT_EULA=Y
-ENV SA_PASSWORD=AOWSUufrhbnQ§?R7816a854re324235r
+ENV SA_PASSWORD=AOWSUufrhbnQ?R7816a854re324235r
 ENV MSSQL_PID=Developer
 ENV MSSQL_TCP_PORT=1433
 ENV NODE_MAJOR=18
@@ -34,7 +34,7 @@ RUN chmod +x setup.sh
 
 
 WORKDIR /
-ENV DATABASE_URL sqlserver://localhost:1433;database=FooBar;user=SA;password=AOWSUufrhbnQ§?R7816a854re324235r;TrustServerCertificate=true
+ENV DATABASE_URL sqlserver://localhost:1433;database=FooBar;user=SA;password=AOWSUufrhbnQ?R7816a854re324235r;TrustServerCertificate=true
 RUN (/opt/mssql/bin/sqlservr & ) | grep -q "Service Broker manager has started" \
   && ./setup.sh
 

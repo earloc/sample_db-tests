@@ -15,7 +15,7 @@ export function ConfigureScoped(
   configure: (testingModule: TestingModule) => void | Promise<void>,
 ) {
   const databaseName = `Transient_${scopeName}_${uuidv4()}`;
-  const connectionString = `sqlserver://localhost:1437;database=${databaseName};user=SA;password=AOWSUufrhbnQ§?R7816a854re324235r;TrustServerCertificate=true`;
+  const connectionString = `sqlserver://localhost:1437;database=${databaseName};user=SA;password=AOWSUufrhbnQ?R7816a854re324235r;TrustServerCertificate=true`;
   beforeAll(async () => {
     console.log(databaseName);
     await dbUp(connectionString);
@@ -51,7 +51,7 @@ export function ConfigureTransient(
   beforeEach(async () => {
     databaseName = `Transient_${scopeName}_${uuidv4()}`;
     console.log(databaseName);
-    connectionString = `sqlserver://localhost:1437;database=${databaseName};user=SA;password=AOWSUufrhbnQ§?R7816a854re324235r;TrustServerCertificate=true`;
+    connectionString = `sqlserver://localhost:1437;database=${databaseName};user=SA;password=AOWSUufrhbnQ?R7816a854re324235r;TrustServerCertificate=true`;
     await dbUp(connectionString);
 
     const testingModule = await Test.createTestingModule({
