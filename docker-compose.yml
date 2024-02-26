@@ -1,0 +1,16 @@
+services:
+  db:
+    build:
+      dockerfile: ./.container/db/containerfile
+      context: .
+    ports:
+      - 1437:1433
+    container_name: FooBar-DB
+    platform: linux/amd64
+  q:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports:
+      - 20000:10000
+      - 20001:10001
+      - 20002:10002
+    container_name: FooBar-Q

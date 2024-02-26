@@ -1,0 +1,43 @@
+# thx https://dotnetthoughts.net/initialize-mssql-in-docker-container/
+ARG BaseImage=mcr.microsoft.com/mssql/server:2019-latest
+FROM $BaseImage
+
+ENV ACCEPT_EULA=Y
+ENV SA_PASSWORD=AOWSUufrhbnQ§?R7816a854re324235r
+ENV MSSQL_PID=Developer
+ENV MSSQL_TCP_PORT=1433
+ENV NODE_MAJOR=18
+
+USER root
+
+RUN apt-get update \
+    && apt-get upgrade -y \
+    && apt-get install git -y \
+    && apt-get install curl -y \
+    # New node installation: https://github.com/nodesource/distributions#installation-instructions
+    && apt-get install -y ca-certificates curl gnupg \
+    && mkdir -p /etc/apt/keyrings \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_$NODE_MAJOR.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update \
+    && apt-get install nodejs -y \
+    && npm install -g prisma
+
+COPY /.container/db/entrypoint.sh entrypoint.sh
+RUN chmod +x entrypoint.sh
+
+COPY prisma/ ./prisma/
+COPY package*.json .
+
+COPY /.container/db/setup.sh setup.sh
+RUN chmod +x setup.sh
+
+
+WORKDIR /
+ENV DATABASE_URL sqlserver://localhost:1433;database=FooBar;user=SA;password=AOWSUufrhbnQ§?R7816a854re324235r;TrustServerCertificate=true
+RUN (/opt/mssql/bin/sqlservr & ) | grep -q "Service Broker manager has started" \
+  && ./setup.sh
+
+RUN true
+
+ENTRYPOINT [ "./entrypoint.sh" ]
